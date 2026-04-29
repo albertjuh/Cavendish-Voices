@@ -12,9 +12,8 @@ import {
   BarChart3,
   Phone,
   HelpCircle,
-  Settings,
-  LogOut,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from "lucide-react"
 
 import {
@@ -50,11 +49,25 @@ const supportNav = [
 export function AppSidebar() {
   const pathname = usePathname()
   const logoImage = PlaceHolderImages.find(img => img.id === 'university-logo')
+  
+  const [clickCount, setClickCount] = React.useState(0)
+  const [isAdminVisible, setIsAdminVisible] = React.useState(false)
+
+  const handleLogoClick = (e: React.MouseEvent) => {
+    const nextCount = clickCount + 1
+    if (nextCount >= 3) {
+      setIsAdminVisible(true)
+    }
+    setClickCount(nextCount)
+  }
 
   return (
     <Sidebar className="border-r-0 shadow-xl">
       <SidebarHeader className="p-6">
-        <Link href="/" className="flex items-center gap-3 px-2 group">
+        <div 
+          onClick={handleLogoClick}
+          className="flex items-center gap-3 px-2 group cursor-pointer"
+        >
           <div className="relative h-10 w-10 overflow-hidden rounded-lg bg-white p-1 shadow-md transition-transform group-hover:scale-105">
             {logoImage && (
               <Image
@@ -75,7 +88,7 @@ export function AppSidebar() {
               Voices
             </span>
           </div>
-        </Link>
+        </div>
       </SidebarHeader>
       
       <SidebarContent className="px-3">
@@ -107,35 +120,38 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
 
-        <SidebarSeparator className="bg-white/10 my-4 mx-4" />
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-4 text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
-            Management
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {adminNav.map((item) => (
-              <SidebarMenuItem key={item.name}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.href}
-                  className={cn(
-                    "h-11 px-4 rounded-xl transition-all duration-200",
-                    pathname === item.href 
-                      ? "bg-secondary text-secondary-foreground shadow-lg scale-[1.02]" 
-                      : "text-white/80 hover:bg-white/10 hover:text-white"
-                  )}
-                >
-                  <Link href={item.href}>
-                    <item.icon className="mr-3 h-5 w-5" />
-                    <span className="font-medium">{item.name}</span>
-                    {pathname === item.href && <ChevronRight className="ml-auto h-4 w-4" />}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {isAdminVisible && (
+          <>
+            <SidebarSeparator className="bg-white/10 my-4 mx-4" />
+            <SidebarGroup className="animate-in fade-in slide-in-from-top-1 duration-500">
+              <SidebarGroupLabel className="px-4 text-xs font-semibold uppercase tracking-wider text-white/50 mb-2">
+                Management
+              </SidebarGroupLabel>
+              <SidebarMenu>
+                {adminNav.map((item) => (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.href}
+                      className={cn(
+                        "h-11 px-4 rounded-xl transition-all duration-200",
+                        pathname === item.href 
+                          ? "bg-secondary text-secondary-foreground shadow-lg scale-[1.02]" 
+                          : "text-white/80 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className="mr-3 h-5 w-5" />
+                        <span className="font-medium">{item.name}</span>
+                        {pathname === item.href && <ChevronRight className="ml-auto h-4 w-4" />}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          </>
+        )}
 
         <SidebarSeparator className="bg-white/10 my-4 mx-4" />
 
