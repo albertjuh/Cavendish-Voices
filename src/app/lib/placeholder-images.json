@@ -9,8 +9,8 @@
     },
     {
       "id": "university-logo",
-      "description": "University Emblem",
-      "imageUrl": "https://picsum.photos/seed/cavendish2/200/200",
+      "description": "Cavendish University Logo",
+      "imageUrl": "/cavendish.png",
       "imageHint": "university logo"
     }
   ]
