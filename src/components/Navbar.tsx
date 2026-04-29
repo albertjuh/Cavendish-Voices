@@ -2,11 +2,13 @@
 "use client"
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { MessageSquare, LayoutDashboard, Home, Send, Phone, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const navItems = [
   { name: 'Home', href: '/', icon: Home },
@@ -19,32 +21,47 @@ const navItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const logoImage = PlaceHolderImages.find(img => img.id === 'university-logo');
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-20 items-center justify-between">
           <div className="flex items-center">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="bg-primary p-2 rounded-lg group-hover:bg-primary/90 transition-colors">
-                <MessageSquare className="h-6 w-6 text-primary-foreground" />
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative h-14 w-14 overflow-hidden rounded-lg bg-white p-1 shadow-sm transition-transform group-hover:scale-105">
+                {logoImage && (
+                  <Image
+                    src={logoImage.imageUrl}
+                    alt={logoImage.description}
+                    width={56}
+                    height={56}
+                    className="object-contain"
+                    data-ai-hint={logoImage.imageHint}
+                  />
+                )}
               </div>
-              <span className="font-headline font-bold text-xl tracking-tight text-primary hidden sm:inline-block">
-                Cavendish Voices
-              </span>
+              <div className="flex flex-col">
+                <span className="font-headline font-bold text-xl tracking-tight text-primary leading-none">
+                  Cavendish
+                </span>
+                <span className="font-headline font-semibold text-lg text-secondary leading-none">
+                  Voices
+                </span>
+              </div>
             </Link>
           </div>
 
           <div className="hidden md:block">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
               {navItems.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2",
+                    "px-3 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2",
                     pathname === item.href
-                      ? "text-primary bg-primary/10"
+                      ? "text-primary bg-primary/10 shadow-sm"
                       : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                   )}
                 >
