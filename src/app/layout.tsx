@@ -8,6 +8,9 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'Cavendish Voices | Student Suggestion Portal',
   description: 'The official digital suggestion box for Cavendish University students.',
+  icons: {
+    icon: '/cavendish.png',
+  },
 };
 
 export default function RootLayout({
