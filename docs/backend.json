@@ -1,0 +1,200 @@
+{
+  "entities": {
+    "Suggestion": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Suggestion",
+      "type": "object",
+      "description": "Represents a suggestion, complaint, or idea submitted by a student to Cavendish University management.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Suggestion entity."
+        },
+        "studentName": {
+          "type": "string",
+          "description": "The name of the student submitting the suggestion. Optional for anonymous submissions."
+        },
+        "studentRegistrationNumber": {
+          "type": "string",
+          "description": "The registration number of the student submitting the suggestion. Optional for anonymous submissions."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "Reference to the Department where the suggestion is directed or originated. (Relationship: Department 1:N Suggestion)"
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to the Category of the suggestion (e.g., Complaint, Recommendation). (Relationship: Category 1:N Suggestion)"
+        },
+        "title": {
+          "type": "string",
+          "description": "A brief summary or title of the suggestion."
+        },
+        "message": {
+          "type": "string",
+          "description": "The detailed message or content of the suggestion."
+        },
+        "priority": {
+          "type": "string",
+          "description": "The priority level assigned to the suggestion (Low, Medium, High)."
+        },
+        "isAnonymous": {
+          "type": "boolean",
+          "description": "Indicates whether the student chose to submit the suggestion anonymously."
+        },
+        "submissionDateTime": {
+          "type": "string",
+          "description": "The date and time when the suggestion was submitted.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the suggestion (e.g., Pending, Reviewed, Resolved)."
+        },
+        "resolvedDateTime": {
+          "type": "string",
+          "description": "The date and time when the suggestion was marked as resolved by an administrator. Null if not resolved.",
+          "format": "date-time"
+        },
+        "adminNotes": {
+          "type": "string",
+          "description": "Internal notes added by administrators regarding the suggestion."
+        }
+      },
+      "required": [
+        "id",
+        "departmentId",
+        "categoryId",
+        "title",
+        "message",
+        "priority",
+        "isAnonymous",
+        "submissionDateTime",
+        "status"
+      ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents a university department to which suggestions can be related.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Department entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official name of the department (e.g., 'Computer Science')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the department."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a predefined category for suggestions (e.g., 'Complaint', 'Recommendation').",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Category entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the suggestion category (e.g., 'Complaint', 'Facilities Issue')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description or definition of the category."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/departments/{departmentId}",
+        "definition": {
+          "entityName": "Department",
+          "schema": {
+            "$ref": "#/backend/entities/Department"
+          },
+          "description": "Stores information about university departments. Documents are read-only for all authenticated users and writeable only by administrators. Includes denormalized 'name' for easier display in suggestions.",
+          "params": [
+            {
+              "name": "departmentId",
+              "description": "The unique identifier for a specific university department."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/categories/{categoryId}",
+        "definition": {
+          "entityName": "Category",
+          "schema": {
+            "$ref": "#/backend/entities/Category"
+          },
+          "description": "Stores predefined categories for suggestions (e.g., 'Complaint', 'Recommendation'). Documents are read-only for all authenticated users and writeable only by administrators. Includes denormalized 'name' for easier display in suggestions.",
+          "params": [
+            {
+              "name": "categoryId",
+              "description": "The unique identifier for a specific suggestion category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/suggestions/{suggestionId}",
+        "definition": {
+          "entityName": "Suggestion",
+          "schema": {
+            "$ref": "#/backend/entities/Suggestion"
+          },
+          "description": "Stores all student suggestions, complaints, and ideas. This collection supports global viewing for all authenticated users. For authorization independence, each document includes an 'ownerId' (the UID of the submitting student) if 'isAnonymous' is false, allowing the owner to manage their own non-anonymous suggestions without hierarchical lookups. It also contains 'status', 'departmentId', and 'categoryId' for efficient querying and filtering.",
+          "params": [
+            {
+              "name": "suggestionId",
+              "description": "The unique identifier for a specific student suggestion."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{adminId}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/AdminRole"
+          },
+          "description": "Grants administrator privileges. A document exists here for each user ID (UID) that has admin rights. This enables Database-Backed Access Control (DBAC) using existence checks, ensuring authorization independence and simplified security rules for admin actions.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier (UID) of the user designated as an administrator."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure is designed with a strong emphasis on Authorization Independence, Structural Segregation, and DBAC (Database-Backed Access Control) to ensure robust, debuggable security rules, and efficient querying (QAPs). The core entities are `Department`, `Category`, `Suggestion`, and a conceptual `AdminRole` for managing permissions.\n\n**Authorization Independence (CRITICAL):**\n1.  **For `Suggestion` documents:** Each `Suggestion` document, when not submitted anonymously (`isAnonymous: false`), will include an `ownerId` field that stores the `request.auth.uid` of the submitting student. This denormalization is crucial. It eliminates the need for security rules to perform `get()` operations on other collections (e.g., `/users/{uid}`) to determine ownership for write operations. A student can update their own non-anonymous suggestion (`resource.data.ownerId == request.auth.uid`) without complex rule lookups. For anonymous submissions, `ownerId` would be null or absent, making them immutable by any specific user (except admins).\n2.  **For `AdminRole`:** Admin privileges are managed via a dedicated top-level collection, `/roles_admin/{adminId}`. The mere existence of a document with `adminId` matching `request.auth.uid` grants administrative permissions. This is an 'existence over content' approach, which is highly efficient and independent, as it doesn't rely on nested structures or `get()` calls to other user profiles.\n\n**QAPs (Rules are not Filters):**\n1.  **Structural Segregation for `Department` and `Category`:** These collections (`/departments` and `/categories`) are designed as read-only lookup tables for all authenticated users, with write access restricted to administrators. This homogeneous security posture ensures simple `list` and `get` operations for these entities without complex rule filtering.\n2.  **`Suggestion` Collection for Global Access:** The `/suggestions` collection is designed to support the 'View Suggestions' feature, allowing all authenticated users to `list` and `get` suggestions. Querying and filtering (by `departmentId`, `categoryId`, `status`, `priority`) can be done directly on the `Suggestion` documents themselves, as all necessary filterable attributes are within the document. The security rules will permit reads for authenticated users, ensuring QAPs for the display page. Write access (create, update, delete) is then carefully controlled based on `ownerId` (for the submitting student) or the `AdminRole`.\n\n**DBAC (Database-Backed Access Control):**\n*   The `/roles_admin/{adminId}` collection is the cornerstone for DBAC. It explicitly grants 'admin' permissions based on the `uid` stored as the document ID. This allows for clear, centralized, and auditable management of administrative roles without relying on custom claims or complex chained `get()` operations in rules.\n\n**Overall, this design provides a clear separation of concerns:** lookup data, global viewable data with granular write permissions, and distinct admin roles. Each document carries sufficient information (`ownerId`, `status`, `departmentId`, `categoryId`) to authorize operations directly, minimizing rule complexity and maximizing performance. The addition of Google Sign-In as an authentication provider means users will have `request.auth.uid` available for these DBAC patterns."
+  }
+}

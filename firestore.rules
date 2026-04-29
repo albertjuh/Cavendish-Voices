@@ -1,0 +1,120 @@
+/**
+ * Firestore Security Rules
+ *
+ * Core Philosophy:
+ * This ruleset implements a Database-Backed Access Control (DBAC) model combined with a 
+ * user-ownership pattern. It distinguishes between student contributors, the general 
+ * student body (viewers), and university administrators. 
+ *
+ * Data Structure:
+ * - /departments: Global lookup for university departments.
+ * - /categories: Global lookup for suggestion types.
+ * - /roles_admin: A control collection where the existence of a document grants admin rights.
+ * - /suggestions: The primary data collection containing student feedback.
+ *
+ * Key Security Decisions:
+ * - Authorization Independence: Every suggestion document stores an 'ownerId' (if not anonymous) 
+ *   to allow for fast, direct ownership checks without cross-document lookups.
+ * - DBAC for Admin: Admin status is verified by checking for a document in the /roles_admin 
+ *   collection matching the user's UID.
+ * - Public Authenticated Read: All suggestions, departments, and categories are readable by 
+ *   any authenticated user to support a transparent feedback system.
+ * - Immutability of Ownership: Relational fields like 'ownerId' and document 'id' are 
+ *   enforced as immutable after creation.
+ *
+ * Denormalization for Authorization:
+ * - The 'ownerId' is denormalized onto the 'Suggestion' document itself. This allows for 
+ *   the rule `resource.data.ownerId == request.auth.uid` instead of needing to query a 
+ *   user profile or membership collection.
+ */
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+
+    /** Checks if the request is from a signed-in user. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user has an entry in the admin roles collection. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /** Checks if the user's UID matches the provided ID. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Combines ownership check with document existence for updates and deletes. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    /** Validates relational integrity for suggestions during creation. */
+    function isValidSuggestionCreate(suggestionId) {
+      return request.resource.data.id == suggestionId && (request.resource.data.isAnonymous == true || request.resource.data.ownerId == request.auth.uid);
+    }
+
+    /** Validates relational integrity and ownership for suggestion updates. */
+    function isValidSuggestionUpdate() {
+      return request.resource.data.id == resource.data.id && (isAdmin() || (resource.data.isAnonymous == false && isExistingOwner(resource.data.ownerId) && request.resource.data.ownerId == resource.data.ownerId));
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Lookup table for university departments. Read-only for users, managed by admins.
+     * @path /departments/{departmentId}
+     * @allow (get, list) if a user is signed in.
+     * @deny (create) if the user is not an administrator.
+     * @principle Structural Segregation: Lookup data is read-accessible but write-protected.
+     */
+    match /departments/{departmentId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Categories for suggestions (e.g., Complaint). Read-only for users, managed by admins.
+     * @path /categories/{categoryId}
+     * @allow (get, list) if any user is authenticated.
+     * @deny (update) if a student attempts to modify a category name.
+     * @principle DBAC: Write access is restricted to users with the admin role.
+     */
+    match /categories/{categoryId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Repository for student feedback and suggestions.
+     * @path /suggestions/{suggestionId}
+     * @allow (create) if the user is signed in and provides their own UID as ownerId (or submits anonymously).
+     * @deny (delete) if a student tries to delete another student's suggestion.
+     * @principle Authorization Independence: Uses denormalized 'ownerId' for granular write control.
+     */
+    match /suggestions/{suggestionId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidSuggestionCreate(suggestionId);
+      allow update: if isValidSuggestionUpdate();
+      allow delete: if isAdmin() || (resource.data.isAnonymous == false && isExistingOwner(resource.data.ownerId));
+    }
+
+    /**
+     * @description Collection defining administrator privileges via document existence.
+     * @path /roles_admin/{adminId}
+     * @allow (get) if the user is checking their own status or is an admin.
+     * @deny (list) if a non-admin attempts to list all administrators.
+     * @principle DBAC: Uses existence checks (existence-over-content) for performant authorization.
+     */
+    match /roles_admin/{adminId} {
+      allow get: if isSignedIn() && (isOwner(adminId) || isAdmin());
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
