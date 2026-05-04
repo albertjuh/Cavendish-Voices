@@ -13,7 +13,10 @@ import {
   Phone,
   HelpCircle,
   ChevronRight,
-  LogOut
+  LogOut,
+  LogIn,
+  User as UserIcon,
+  ShieldCheck
 } from "lucide-react"
 
 import {
@@ -30,6 +33,8 @@ import {
 } from "@/components/ui/sidebar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { cn } from "@/lib/utils"
+import { useFirebase, initiateGoogleSignIn, initiateSignOut } from "@/firebase"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const mainNav = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -48,6 +53,7 @@ const supportNav = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { auth, user, isUserLoading } = useFirebase()
   const logoImage = PlaceHolderImages.find(img => img.id === 'university-logo')
   
   const [clickCount, setClickCount] = React.useState(0)
@@ -59,6 +65,14 @@ export function AppSidebar() {
       setIsAdminVisible(true)
     }
     setClickCount(nextCount)
+  }
+
+  const handleSignIn = () => {
+    if (auth) initiateGoogleSignIn(auth);
+  }
+
+  const handleSignOut = () => {
+    if (auth) initiateSignOut(auth);
   }
 
   return (
@@ -184,18 +198,39 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-6">
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/10">
-          <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold text-xs">
-            CU
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-bold text-white truncate">Guest Student</span>
-            <span className="text-[10px] text-white/50 truncate">CU/2023/1234</span>
-          </div>
-          <button className="ml-auto text-white/40 hover:text-white transition-colors">
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+        {!isUserLoading && (
+          user ? (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 border border-white/10">
+                <Avatar className="h-8 w-8 border-2 border-secondary shadow-sm">
+                  <AvatarImage src={user.photoURL || undefined} />
+                  <AvatarFallback className="bg-secondary text-secondary-foreground font-bold text-xs uppercase">
+                    {user.displayName?.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-xs font-bold text-white truncate">{user.displayName}</span>
+                  <span className="text-[10px] text-white/50 truncate">{user.email}</span>
+                </div>
+                <button 
+                  onClick={handleSignOut}
+                  className="ml-auto text-white/40 hover:text-white transition-colors"
+                  title="Sign Out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={handleSignIn}
+              className="w-full flex items-center justify-center gap-2 p-3 rounded-2xl bg-secondary text-secondary-foreground font-bold text-sm hover:scale-[1.02] transition-all shadow-lg"
+            >
+              <LogIn className="h-4 w-4" />
+              Sign in with University Google
+            </button>
+          )
+        )}
       </SidebarFooter>
     </Sidebar>
   )

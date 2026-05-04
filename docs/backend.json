@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Suggestion": {
@@ -125,7 +126,8 @@
   "auth": {
     "providers": [
       "password",
-      "anonymous"
+      "anonymous",
+      "google.com"
     ]
   },
   "firestore": {
@@ -194,7 +196,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The recommended Firestore structure is designed with a strong emphasis on Authorization Independence, Structural Segregation, and DBAC (Database-Backed Access Control) to ensure robust, debuggable security rules, and efficient querying (QAPs). The core entities are `Department`, `Category`, `Suggestion`, and a conceptual `AdminRole` for managing permissions.\n\n**Authorization Independence (CRITICAL):**\n1.  **For `Suggestion` documents:** Each `Suggestion` document, when not submitted anonymously (`isAnonymous: false`), will include an `ownerId` field that stores the `request.auth.uid` of the submitting student. This denormalization is crucial. It eliminates the need for security rules to perform `get()` operations on other collections (e.g., `/users/{uid}`) to determine ownership for write operations. A student can update their own non-anonymous suggestion (`resource.data.ownerId == request.auth.uid`) without complex rule lookups. For anonymous submissions, `ownerId` would be null or absent, making them immutable by any specific user (except admins).\n2.  **For `AdminRole`:** Admin privileges are managed via a dedicated top-level collection, `/roles_admin/{adminId}`. The mere existence of a document with `adminId` matching `request.auth.uid` grants administrative permissions. This is an 'existence over content' approach, which is highly efficient and independent, as it doesn't rely on nested structures or `get()` calls to other user profiles.\n\n**QAPs (Rules are not Filters):**\n1.  **Structural Segregation for `Department` and `Category`:** These collections (`/departments` and `/categories`) are designed as read-only lookup tables for all authenticated users, with write access restricted to administrators. This homogeneous security posture ensures simple `list` and `get` operations for these entities without complex rule filtering.\n2.  **`Suggestion` Collection for Global Access:** The `/suggestions` collection is designed to support the 'View Suggestions' feature, allowing all authenticated users to `list` and `get` suggestions. Querying and filtering (by `departmentId`, `categoryId`, `status`, `priority`) can be done directly on the `Suggestion` documents themselves, as all necessary filterable attributes are within the document. The security rules will permit reads for authenticated users, ensuring QAPs for the display page. Write access (create, update, delete) is then carefully controlled based on `ownerId` (for the submitting student) or the `AdminRole`.\n\n**DBAC (Database-Backed Access Control):**\n*   The `/roles_admin/{adminId}` collection is the cornerstone for DBAC. It explicitly grants 'admin' permissions based on the `uid` stored as the document ID. This allows for clear, centralized, and auditable management of administrative roles without relying on custom claims or complex chained `get()` operations in rules.\n\n**Overall, this design provides a clear separation of concerns:** lookup data, global viewable data with granular write permissions, and distinct admin roles. Each document carries sufficient information (`ownerId`, `status`, `departmentId`, `categoryId`) to authorize operations directly, minimizing rule complexity and maximizing performance. The addition of Google Sign-In as an authentication provider means users will have `request.auth.uid` available for these DBAC patterns."
+    ]
   }
 }
