@@ -25,13 +25,9 @@ export function initiateEmailSignIn(authInstance: Auth, email: string, password:
   signInWithEmailAndPassword(authInstance, email, password);
 }
 
-/** Initiate Google sign-in (non-blocking) with domain restriction. */
+/** Initiate Google sign-in (non-blocking). */
 export function initiateGoogleSignIn(authInstance: Auth): void {
   const provider = new GoogleAuthProvider();
-  // Set hosting domain to restrict to Cavendish University accounts
-  provider.setCustomParameters({
-    hd: 'cavendish.ac.ug'
-  });
   signInWithPopup(authInstance, provider);
 }
 
