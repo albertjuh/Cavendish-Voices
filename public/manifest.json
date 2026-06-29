@@ -1,0 +1,26 @@
+{
+  "name": "Cavendish Voices",
+  "short_name": "CV Voices",
+  "description": "The official digital suggestion box for Cavendish University students.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#EEF2FA",
+  "theme_color": "#1F509F",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/cavendish.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/cavendish.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "screenshots": []
+}

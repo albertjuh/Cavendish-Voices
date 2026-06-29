@@ -2,17 +2,19 @@
 "use client"
 
 import { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { CATEGORIES, DEPARTMENTS, Suggestion } from '@/lib/mock-data';
 import { subscribeSuggestions } from '@/lib/firestore';
 import { useFirebase } from '@/firebase';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
 import {
-  Search, Filter, Calendar, User, Building, Tag, MessageCircle, ArrowUpDown, Loader2
+  Search, Calendar, User, Building, Tag, MessageCircle, ArrowUpDown, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -147,9 +149,9 @@ export default function SuggestionsList() {
 
         {/* Suggestion Cards */}
         {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
             {filteredSuggestions.map((s) => (
-              <Card key={s.id} className="flex flex-col border-none shadow-lg hover:shadow-xl transition-all duration-300">
+              <Card key={s.id} className="flex flex-col border-none shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300">
                 <CardHeader>
                   <div className="flex justify-between items-start gap-2 mb-3">
                     <Badge variant="outline" className={getPriorityColor(s.priority)}>
@@ -159,15 +161,15 @@ export default function SuggestionsList() {
                       {s.status}
                     </Badge>
                   </div>
-                  <CardTitle className="text-xl font-bold line-clamp-1">{s.title}</CardTitle>
+                  <CardTitle className="text-lg font-bold line-clamp-2 leading-snug">{s.title}</CardTitle>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                     <Tag className="h-3 w-3" />
                     <span>{s.category}</span>
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1">
-                  <p className="text-muted-foreground text-sm line-clamp-4 italic leading-relaxed">
-                    "{s.message}"
+                  <p className="text-muted-foreground text-sm line-clamp-3 italic leading-relaxed">
+                    &ldquo;{s.message}&rdquo;
                   </p>
                 </CardContent>
                 <CardFooter className="border-t pt-4 flex flex-col gap-3">
@@ -181,9 +183,17 @@ export default function SuggestionsList() {
                       <span>{format(new Date(s.submittedAt), 'MMM dd, yyyy')}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground w-full">
-                    <Building className="h-3.5 w-3.5" />
-                    <span className="truncate">{s.department}</span>
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Building className="h-3.5 w-3.5" />
+                      <span className="truncate max-w-[140px]">{s.department}</span>
+                    </div>
+                    <Button asChild size="sm" variant="ghost" className="h-7 px-3 text-xs text-primary hover:bg-primary/10 gap-1.5">
+                      <Link href={`/suggestions/${s.id}`}>
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        Discuss
+                      </Link>
+                    </Button>
                   </div>
                 </CardFooter>
               </Card>

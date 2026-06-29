@@ -3,6 +3,8 @@ import {
   collection,
   doc,
   setDoc,
+  addDoc,
+  getDoc,
   updateDoc,
   deleteDoc,
   getDocs,
@@ -16,6 +18,16 @@ import {
 } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import type { Suggestion, Category, Priority, Status } from './mock-data';
+
+export interface Comment {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorEmail: string;
+  authorPhoto?: string;
+  message: string;
+  createdAt: string;
+}
 
 export interface CreateSuggestionInput {
   studentName?: string;
@@ -107,4 +119,76 @@ export async function updateSuggestionStatus(
 export async function deleteSuggestion(firestore: Firestore, id: string): Promise<void> {
   const ref = doc(firestore, 'suggestions', id);
   await deleteDoc(ref);
+}
+
+export async function getSuggestionById(firestore: Firestore, id: string): Promise<Suggestion | null> {
+  const ref = doc(firestore, 'suggestions', id);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return null;
+  const data = snap.data();
+  const submittedAt =
+    data.submittedAt instanceof Timestamp
+      ? data.submittedAt.toDate().toISOString()
+      : data.submittedAt ?? new Date().toISOString();
+  return {
+    id: data.id ?? snap.id,
+    studentName: data.studentName,
+    studentRegNo: data.studentRegNo,
+    department: data.department,
+    category: data.category,
+    title: data.title,
+    message: data.message,
+    priority: data.priority,
+    isAnonymous: data.isAnonymous,
+    submittedAt,
+    status: data.status ?? 'Pending',
+  } as Suggestion;
+}
+
+export async function addComment(
+  firestore: Firestore,
+  user: User,
+  suggestionId: string,
+  message: string
+): Promise<string> {
+  const commentsRef = collection(firestore, 'suggestions', suggestionId, 'comments');
+  const ref = await addDoc(commentsRef, {
+    authorId: user.uid,
+    authorName: user.displayName ?? 'Student',
+    authorEmail: user.email ?? '',
+    authorPhoto: user.photoURL ?? null,
+    message,
+    createdAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export function subscribeComments(
+  firestore: Firestore,
+  suggestionId: string,
+  onChange: (comments: Comment[]) => void
+): () => void {
+  const q = query(
+    collection(firestore, 'suggestions', suggestionId, 'comments'),
+    orderBy('createdAt', 'asc')
+  );
+  return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+    const comments = snapshot.docs.map((d) => {
+      const data = d.data();
+      const createdAt =
+        data.createdAt instanceof Timestamp
+          ? data.createdAt.toDate().toISOString()
+          : data.createdAt ?? new Date().toISOString();
+      return {
+        id: d.id,
+        authorId: data.authorId,
+        authorName: data.authorName,
+        authorEmail: data.authorEmail,
+        authorPhoto: data.authorPhoto ?? undefined,
+        message: data.message,
+        createdAt,
+      } as Comment;
+    });
+    onChange(comments);
+  });
 }

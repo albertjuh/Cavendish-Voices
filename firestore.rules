@@ -102,6 +102,12 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidSuggestionCreate(suggestionId);
       allow update: if isValidSuggestionUpdate();
       allow delete: if isAdmin() || (resource.data.isAnonymous == false && isExistingOwner(resource.data.ownerId));
+
+      match /comments/{commentId} {
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow delete: if isAdmin() || (isSignedIn() && resource.data.authorId == request.auth.uid);
+      }
     }
 
     /**
