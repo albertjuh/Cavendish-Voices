@@ -17,7 +17,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (isUserLoading) {
     return (
-      <div className="flex items-center justify-center min-h-full bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -25,7 +25,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-full bg-background px-4">
+      <div className="flex items-center justify-center min-h-screen bg-background px-4">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
             {/* Header strip */}
