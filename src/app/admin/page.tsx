@@ -1,52 +1,69 @@
 
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { 
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell 
+import {
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { 
-  INITIAL_SUGGESTIONS, 
-  Suggestion 
-} from '@/lib/mock-data';
-import { 
-  BarChart3, Users, CheckCircle, Clock, Trash2, CheckSquare, Eye, MoreHorizontal, Download
+import { Suggestion } from '@/lib/mock-data';
+import { subscribeSuggestions, updateSuggestionStatus, deleteSuggestion } from '@/lib/firestore';
+import { useFirebase } from '@/firebase';
+import {
+  BarChart3, Users, CheckCircle, Clock, Trash2, CheckSquare, Eye, MoreHorizontal, Download, Loader2
 } from 'lucide-react';
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger 
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { CategoryStats, SuggestionTrend } from '@/components/DashboardCharts';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AdminDashboard() {
   const { toast } = useToast();
-  const [suggestions, setSuggestions] = useState<Suggestion[]>(INITIAL_SUGGESTIONS);
+  const { firestore, user } = useFirebase();
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = [
-    { title: 'Total Submissions', value: '1,248', icon: BarChart3, color: 'text-primary bg-primary/10' },
-    { title: 'Resolved Issues', value: '842', icon: CheckCircle, color: 'text-green-600 bg-green-50' },
-    { title: 'Pending Review', value: '156', icon: Clock, iconColor: 'text-orange-500 bg-orange-50' },
-    { title: 'Unique Students', value: '412', icon: Users, color: 'text-blue-600 bg-blue-50' },
-  ];
-
-  const handleResolve = (id: string) => {
-    setSuggestions(prev => prev.map(s => s.id === id ? { ...s, status: 'Resolved' } : s));
-    toast({
-      title: "Updated",
-      description: "Suggestion has been marked as resolved.",
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeSuggestions(firestore, (data) => {
+      setSuggestions(data);
+      setLoading(false);
     });
+    return unsubscribe;
+  }, [firestore, user]);
+
+  const stats = useMemo(() => {
+    const total = suggestions.length;
+    const resolved = suggestions.filter(s => s.status === 'Resolved').length;
+    const pending = suggestions.filter(s => s.status === 'Pending').length;
+    const uniqueStudents = new Set(suggestions.filter(s => !s.isAnonymous).map(s => s.studentRegNo)).size;
+    return [
+      { title: 'Total Submissions', value: total.toString(), icon: BarChart3, color: 'text-primary bg-primary/10' },
+      { title: 'Resolved Issues', value: resolved.toString(), icon: CheckCircle, color: 'text-green-600 bg-green-50' },
+      { title: 'Pending Review', value: pending.toString(), icon: Clock, color: 'text-orange-500 bg-orange-50' },
+      { title: 'Unique Students', value: uniqueStudents.toString(), icon: Users, color: 'text-blue-600 bg-blue-50' },
+    ];
+  }, [suggestions]);
+
+  const handleResolve = async (id: string) => {
+    try {
+      await updateSuggestionStatus(firestore, id, 'Resolved');
+      toast({ title: "Updated", description: "Suggestion has been marked as resolved." });
+    } catch {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setSuggestions(prev => prev.filter(s => s.id !== id));
-    toast({
-      title: "Deleted",
-      variant: "destructive",
-      description: "Submission has been removed from records.",
-    });
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteSuggestion(firestore, id);
+      toast({ title: "Deleted", variant: "destructive", description: "Submission has been removed from records." });
+    } catch {
+      toast({ title: "Error", description: "Failed to delete submission.", variant: "destructive" });
+    }
   };
 
   return (
@@ -72,7 +89,7 @@ export default function AdminDashboard() {
                   <p className="text-sm font-medium text-muted-foreground mb-1">{stat.title}</p>
                   <p className="text-2xl font-bold text-primary">{stat.value}</p>
                 </div>
-                <div className={`p-3 rounded-2xl ${stat.color || stat.iconColor}`}>
+                <div className={`p-3 rounded-2xl ${stat.color}`}>
                   <stat.icon className="h-6 w-6" />
                 </div>
               </CardContent>
@@ -114,74 +131,87 @@ export default function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[100px]">ID</TableHead>
-                    <TableHead>Student</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {suggestions.map((s) => (
-                    <TableRow key={s.id}>
-                      <TableCell className="font-mono text-xs">#{s.id.padStart(4, '0')}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{s.isAnonymous ? 'Anonymous' : s.studentName}</span>
-                          <span className="text-xs text-muted-foreground">{s.studentRegNo}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-normal">{s.category}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`text-xs font-bold ${s.priority === 'High' ? 'text-red-500' : 'text-primary'}`}>
-                          {s.priority}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={s.status === 'Resolved' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}>
-                          {s.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem className="cursor-pointer">
-                              <Eye className="mr-2 h-4 w-4" /> View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="cursor-pointer text-green-600"
-                              onClick={() => handleResolve(s.id)}
-                            >
-                              <CheckSquare className="mr-2 h-4 w-4" /> Mark Resolved
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              className="cursor-pointer text-destructive"
-                              onClick={() => handleDelete(s.id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-[100px]">ID</TableHead>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {suggestions.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
+                          No submissions yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {suggestions.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell className="font-mono text-xs">#{s.id.slice(-4).toUpperCase()}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{s.isAnonymous ? 'Anonymous' : s.studentName}</span>
+                            <span className="text-xs text-muted-foreground">{s.studentRegNo}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-normal">{s.category}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-xs font-bold ${s.priority === 'High' ? 'text-red-500' : 'text-primary'}`}>
+                            {s.priority}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={s.status === 'Resolved' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-slate-100 text-slate-700 hover:bg-slate-100'}>
+                            {s.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem className="cursor-pointer">
+                                <Eye className="mr-2 h-4 w-4" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-green-600"
+                                onClick={() => handleResolve(s.id)}
+                              >
+                                <CheckSquare className="mr-2 h-4 w-4" /> Mark Resolved
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="cursor-pointer text-destructive"
+                                onClick={() => handleDelete(s.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

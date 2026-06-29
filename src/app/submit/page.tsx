@@ -23,6 +23,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DEPARTMENTS, CATEGORIES } from '@/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 import { Send, UserCircle, Loader2 } from 'lucide-react';
+import { useFirebase } from '@/firebase';
+import { createSuggestion } from '@/lib/firestore';
 
 const formSchema = z.object({
   studentName: z.string().optional(),
@@ -39,6 +41,7 @@ export default function SubmitSuggestion() {
   const { toast } = useToast();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { firestore, user } = useFirebase();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -51,19 +54,33 @@ export default function SubmitSuggestion() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!user) {
+      toast({ title: "Not ready", description: "Please wait a moment and try again.", variant: "destructive" });
+      return;
+    }
     setIsSubmitting(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    console.log(values);
-    setIsSubmitting(false);
-    
-    toast({
-      title: "Success!",
-      description: "Your suggestion has been submitted successfully.",
-    });
-    
-    router.push('/suggestions');
+    try {
+      await createSuggestion(firestore, user, {
+        studentName: values.isAnonymous ? undefined : values.studentName,
+        studentRegNo: values.studentRegNo,
+        department: values.department,
+        category: values.category as import('@/lib/mock-data').Category,
+        title: values.title,
+        message: values.message,
+        priority: values.priority as import('@/lib/mock-data').Priority,
+        isAnonymous: values.isAnonymous,
+      });
+      toast({
+        title: "Success!",
+        description: "Your suggestion has been submitted successfully.",
+      });
+      router.push('/suggestions');
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error", description: "Failed to submit. Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const isAnonymous = form.watch('isAnonymous');

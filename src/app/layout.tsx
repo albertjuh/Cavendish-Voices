@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/s
 import { AppSidebar } from '@/components/AppSidebar';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
+import { AuthGate } from '@/components/AuthGate';
 
 export const metadata: Metadata = {
   title: 'Cavendish Voices | Student Portal',
@@ -41,7 +42,9 @@ export default function RootLayout({
                   </div>
                 </header>
                 <main className="flex-1 overflow-y-auto">
-                  {children}
+                  <AuthGate>
+                    {children}
+                  </AuthGate>
                 </main>
               </SidebarInset>
             </div>
