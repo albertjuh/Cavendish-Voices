@@ -1,6 +1,7 @@
 'use server';
 
 import { ai } from './genkit';
+import { requireAdmin } from '@/firebase/admin';
 import type { Suggestion } from '@/lib/mock-data';
 
 export interface AIInsights {
@@ -11,7 +12,11 @@ export interface AIInsights {
   recommendations: string[];
 }
 
-export async function analyzeSuggestions(suggestions: Suggestion[]): Promise<AIInsights> {
+export type AnalyzeResult =
+  | { ok: true; data: AIInsights }
+  | { ok: false; error: string };
+
+async function generateInsights(suggestions: Suggestion[]): Promise<AIInsights> {
   if (suggestions.length === 0) {
     return {
       summary: 'No suggestions submitted yet. Encourage students to share their feedback.',
@@ -48,18 +53,39 @@ Respond with a JSON object (no markdown, no code fences) containing:
 
 Keep themes and recommendations concise (under 10 words each). Focus on actionable insights.`;
 
+  const { text } = await ai.generate(prompt);
+  const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
+  return JSON.parse(cleaned) as AIInsights;
+}
+
+/**
+ * Runs AI analysis over all suggestions. Requires a valid Firebase ID token
+ * belonging to a user with a roles_admin entry — enforced server-side so a
+ * non-admin cannot trigger this even by calling the action directly.
+ */
+export async function analyzeSuggestions(
+  suggestions: Suggestion[],
+  idToken: string
+): Promise<AnalyzeResult> {
   try {
-    const { text } = await ai.generate(prompt);
-    const cleaned = text.replace(/```json\n?|\n?```/g, '').trim();
-    const result = JSON.parse(cleaned);
-    return result as AIInsights;
+    await requireAdmin(idToken);
+  } catch {
+    return { ok: false, error: 'Admin access required.' };
+  }
+
+  try {
+    const data = await generateInsights(suggestions);
+    return { ok: true, data };
   } catch {
     return {
-      summary: 'AI analysis completed. Review individual submissions for detailed insights.',
-      topThemes: ['Unable to parse AI response'],
-      sentimentOverview: 'Analysis encountered an issue. Please try again.',
-      urgentItems: suggestions.filter((s) => s.priority === 'High').map((s) => s.title).slice(0, 3),
-      recommendations: ['Review high-priority submissions immediately.'],
+      ok: true,
+      data: {
+        summary: 'AI analysis completed. Review individual submissions for detailed insights.',
+        topThemes: ['Unable to parse AI response'],
+        sentimentOverview: 'Analysis encountered an issue. Please try again.',
+        urgentItems: suggestions.filter((s) => s.priority === 'High').map((s) => s.title).slice(0, 3),
+        recommendations: ['Review high-priority submissions immediately.'],
+      },
     };
   }
 }

@@ -3,6 +3,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell
@@ -11,10 +13,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Suggestion } from '@/lib/mock-data';
 import { subscribeSuggestions, updateSuggestionStatus, deleteSuggestion } from '@/lib/firestore';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import {
   BarChart3, Users, CheckCircle, Clock, Trash2, CheckSquare, Eye, MoreHorizontal,
-  Download, Loader2, Sparkles, TrendingUp, AlertTriangle, Lightbulb, MessageSquare, RefreshCw
+  Download, Loader2, Sparkles, TrendingUp, AlertTriangle, Lightbulb, MessageSquare, RefreshCw, ShieldAlert
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -26,20 +28,35 @@ import { analyzeSuggestions, type AIInsights } from '@/ai/actions';
 
 export default function AdminDashboard() {
   const { toast } = useToast();
-  const { firestore, user } = useFirebase();
+  const router = useRouter();
+  const { firestore, user, isUserLoading } = useFirebase();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  const adminDocRef = useMemoFirebase(
+    () => (user ? doc(firestore, 'roles_admin', user.uid) : null),
+    [firestore, user]
+  );
+  const { data: adminDoc, isLoading: isAdminCheckLoading } = useDoc(adminDocRef);
+  const isAdmin = !!adminDoc;
+
   useEffect(() => {
-    if (!user) return;
+    if (isUserLoading || isAdminCheckLoading) return;
+    if (!isAdmin) {
+      router.replace('/');
+    }
+  }, [isUserLoading, isAdminCheckLoading, isAdmin, router]);
+
+  useEffect(() => {
+    if (!user || !isAdmin) return;
     const unsubscribe = subscribeSuggestions(firestore, (data) => {
       setSuggestions(data);
       setLoading(false);
     });
     return unsubscribe;
-  }, [firestore, user]);
+  }, [firestore, user, isAdmin]);
 
   const stats = useMemo(() => {
     const total = suggestions.length;
@@ -73,16 +90,42 @@ export default function AdminDashboard() {
   };
 
   const handleRunAnalysis = async () => {
+    if (!user) return;
     setAiLoading(true);
     try {
-      const insights = await analyzeSuggestions(suggestions);
-      setAiInsights(insights);
+      const idToken = await user.getIdToken();
+      const result = await analyzeSuggestions(suggestions, idToken);
+      if (result.ok) {
+        setAiInsights(result.data);
+      } else {
+        toast({ title: "AI Error", description: result.error, variant: "destructive" });
+      }
     } catch {
       toast({ title: "AI Error", description: "Analysis failed. Ensure GOOGLE_GENAI_API_KEY is configured.", variant: "destructive" });
     } finally {
       setAiLoading(false);
     }
   };
+
+  if (isUserLoading || isAdminCheckLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4 px-4 text-center">
+        <ShieldAlert className="h-12 w-12 text-destructive" />
+        <h2 className="text-xl font-bold text-primary">Admin access required</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          You don&apos;t have permission to view this page. Redirecting…
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="py-8 md:py-12 bg-background min-h-screen">
@@ -273,7 +316,9 @@ export default function AdminDashboard() {
                         <TableCell>
                           <div className="flex flex-col">
                             <span className="font-medium text-sm">{s.isAnonymous ? 'Anonymous' : s.studentName}</span>
-                            <span className="text-xs text-muted-foreground">{s.studentRegNo}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {s.isAnonymous ? 'Identity hidden' : s.studentRegNo}
+                            </span>
                           </div>
                         </TableCell>
                         <TableCell className="hidden sm:table-cell">

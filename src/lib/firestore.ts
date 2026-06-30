@@ -71,7 +71,6 @@ export async function createSuggestion(
   const ref = doc(collection(firestore, 'suggestions'));
   const docData: Record<string, unknown> = {
     id: ref.id,
-    studentRegNo: input.studentRegNo,
     department: input.department,
     category: input.category,
     title: input.title,
@@ -82,8 +81,11 @@ export async function createSuggestion(
     submittedAt: serverTimestamp(),
   };
 
+  // Identity fields are only ever written for non-anonymous submissions.
+  // Anonymous posts must not be traceable back to a student by anyone, admins included.
   if (!input.isAnonymous) {
     docData.studentName = input.studentName ?? '';
+    docData.studentRegNo = input.studentRegNo;
     docData.ownerId = user.uid;
   }
 

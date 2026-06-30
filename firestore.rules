@@ -54,9 +54,22 @@ service cloud.firestore {
       return resource != null && isOwner(userId);
     }
 
-    /** Validates relational integrity for suggestions during creation. */
+    /** Checks that no identity-revealing fields are present on the document. */
+    function hasNoIdentityFields() {
+      return !('ownerId' in request.resource.data) && !('studentRegNo' in request.resource.data) && !('studentName' in request.resource.data);
+    }
+
+    /**
+     * Validates relational integrity for suggestions during creation.
+     * Anonymous submissions must never carry identity fields (ownerId, studentRegNo,
+     * studentName) so they stay untraceable to everyone, including admins.
+     */
     function isValidSuggestionCreate(suggestionId) {
-      return request.resource.data.id == suggestionId && (request.resource.data.isAnonymous == true || request.resource.data.ownerId == request.auth.uid);
+      return request.resource.data.id == suggestionId &&
+        (
+          (request.resource.data.isAnonymous == true && hasNoIdentityFields()) ||
+          (request.resource.data.isAnonymous == false && request.resource.data.ownerId == request.auth.uid)
+        );
     }
 
     /** Validates relational integrity and ownership for suggestion updates. */

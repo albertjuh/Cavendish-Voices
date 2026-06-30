@@ -6,7 +6,7 @@ export type Status = 'Pending' | 'Reviewing' | 'Resolved';
 export interface Suggestion {
   id: string;
   studentName?: string;
-  studentRegNo: string;
+  studentRegNo?: string;
   department: string;
   category: Category;
   title: string;
